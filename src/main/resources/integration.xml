@@ -4,6 +4,7 @@
              xmlns:beans="http://www.springframework.org/schema/beans"
              xmlns:context="http://www.springframework.org/schema/context"
              xmlns:jdbc="http://www.springframework.org/schema/jdbc"
+             xmlns:int-jdbc="http://www.springframework.org/schema/integration/jdbc"
              xmlns:jms="http://www.springframework.org/schema/integration/jms"
              xsi:schemaLocation="http://www.springframework.org/schema/beans
 			http://www.springframework.org/schema/beans/spring-beans.xsd
@@ -11,6 +12,8 @@
 			http://www.springframework.org/schema/context/spring-context.xsd
 			http://www.springframework.org/schema/jdbc
             http://www.springframework.org/schema/jdbc/spring-jdbc.xsd
+            http://www.springframework.org/schema/integration/jdbc
+            http://www.springframework.org/schema/integration/jdbc/spring-integration-jdbc.xsd
 			http://www.springframework.org/schema/integration
 			http://www.springframework.org/schema/integration/spring-integration.xsd
 			http://www.springframework.org/schema/integration/jms
@@ -31,6 +34,10 @@
     </beans:bean>
 
     <channel id="inbound"/>
+
+    <channel id="filter"/>   <!-- JdbcMessageStore is adding custom header not allowed by SwiftMQ so we filter it out -->
+
+
     <channel id="outbound"/>
     <channel id="discarded"/>
 
@@ -61,7 +68,7 @@
 
     <aggregator id="completelyDefinedAggregator"
                 input-channel="inbound"
-                output-channel="outbound"
+                output-channel="filter"
                 discard-channel="discarded"
                 ref="aggregatorBean"
                 method="add"
@@ -70,7 +77,8 @@
                 correlation-strategy="correlationStrategyBean"
                 correlation-strategy-method="getCorrelationKey"
                 send-partial-result-on-expiry="false"
-                send-timeout="86420000"/>
+                send-timeout="86420000"
+                message-store="jdbc-messageStore"/>
 
     <!--
                     message-store="messageStore"
@@ -82,14 +90,19 @@
 
     <beans:bean id="correlationStrategyBean" class="demo.aggregator.CorrelationStrategy"/>
 
+    <int-jdbc:message-store id="jdbc-messageStore" data-source="dataSource" />
+
+
+    <header-filter input-channel="filter"
+                       output-channel="outbound" header-names="JdbcMessageStore.SAVED, state"/>
 
     <!--<jdbc:initialize-database data-source="dataSource" enabled="#{systemProperties.INITIALIZE_DATABASE}">-->
     <!--<jdbc:script location="classpath:com/foo/sql/db-schema.sql"/>-->
     <!--<jdbc:script location="classpath:com/foo/sql/db-test-data.sql"/>-->
     <!--</jdbc:initialize-database>-->
     <!--<jdbc:initialize-database data-source="dataSource">-->
-    <!--<jdbc:script location="classpath:com/foo/sql/db-schema.sql"/>-->
-    <!--<jdbc:script location="classpath:com/foo/sql/db-test-data.sql"/>-->
-    <!--</jdbc:initialize-database>-->
+    <!--<jdbc:script location="classpath:org/springframework/integration/jdbc/schema-derby.sql"/>-->
+    <!--&lt;!&ndash;<jdbc:script location="classpath:org/springframework/integration/jdbc/schema-drop-derby.sql"/>&ndash;&gt;-->
+<!--</jdbc:initialize-database>-->
 
 </beans:beans>
