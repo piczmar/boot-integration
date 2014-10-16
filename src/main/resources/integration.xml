@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans:beans xmlns="http://www.springframework.org/schema/integration"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:beans="http://www.springframework.org/schema/beans"
+             xmlns:context="http://www.springframework.org/schema/context"
+             xmlns:jdbc="http://www.springframework.org/schema/jdbc"
+             xmlns:jms="http://www.springframework.org/schema/integration/jms"
+             xsi:schemaLocation="http://www.springframework.org/schema/beans
+			http://www.springframework.org/schema/beans/spring-beans.xsd
+			http://www.springframework.org/schema/context
+			http://www.springframework.org/schema/context/spring-context.xsd
+			http://www.springframework.org/schema/jdbc
+            http://www.springframework.org/schema/jdbc/spring-jdbc.xsd
+			http://www.springframework.org/schema/integration
+			http://www.springframework.org/schema/integration/spring-integration.xsd
+			http://www.springframework.org/schema/integration/jms
+			http://www.springframework.org/schema/integration/jms/spring-integration-jms.xsd">
+
+    <context:component-scan base-package="demo"/>
+
+
+    <beans:bean id="messageListenerContainer" class="org.springframework.jms.listener.DefaultMessageListenerContainer">
+        <beans:property name="connectionFactory" ref="connectionFactory"/>
+        <beans:property name="destination" ref="source"/>
+        <beans:property name="sessionTransacted" value="true"/>
+        <beans:property name="maxConcurrentConsumers" value="1"/>
+        <beans:property name="concurrentConsumers" value="1"/>
+        <beans:property name="receiveTimeout" value="5000"/>
+        <beans:property name="recoveryInterval" value="60000"/>
+        <beans:property name="autoStartup" value="true"/>
+    </beans:bean>
+
+    <channel id="inbound"/>
+    <channel id="outbound"/>
+    <channel id="discarded"/>
+
+    <jms:message-driven-channel-adapter id="jmsIn"
+                                        channel="inbound"
+                                        container="messageListenerContainer"
+                                        acknowledge="transacted"></jms:message-driven-channel-adapter>
+
+    <jms:outbound-channel-adapter id="jmsOut"
+                                  channel="outbound"
+                                  connection-factory="targetConnectionFactory"
+                                  destination="targetDestination"
+                                  delivery-persistent="true"></jms:outbound-channel-adapter>
+
+    <jms:outbound-channel-adapter id="jmsOutDiscarded"
+                                  channel="discarded"
+                                  connection-factory="discardConnectionFactory"
+                                  destination="discardDestination"
+                                  delivery-persistent="true"></jms:outbound-channel-adapter>
+
+    <!--<service-activator input-channel="inbound"-->
+    <!--output-channel="outbound"-->
+    <!--ref="messageHandler"-->
+    <!--method="onMessage"-->
+    <!--requires-reply="true"></service-activator>-->
+
+    <!--<beans:bean id="messageHandler" class="demo.MessageHandler"></beans:bean>-->
+
+    <aggregator id="completelyDefinedAggregator"
+                input-channel="inbound"
+                output-channel="outbound"
+                discard-channel="discarded"
+                ref="aggregatorBean"
+                method="add"
+                release-strategy="releaseStrategyBean"
+                release-strategy-method="canRelease"
+                correlation-strategy="correlationStrategyBean"
+                correlation-strategy-method="getCorrelationKey"
+                send-partial-result-on-expiry="false"
+                send-timeout="86420000"/>
+
+    <!--
+                    message-store="messageStore"
+    A reference to a MessageGroupStore that can be used to store groups of messages under their correlation key until they are complete. Optional with default a volatile in-memory store.
+    -->
+    <beans:bean id="aggregatorBean" class="demo.aggregator.MessageAggregator"/>
+
+    <beans:bean id="releaseStrategyBean" class="demo.aggregator.ReleaseStrategy"/>
+
+    <beans:bean id="correlationStrategyBean" class="demo.aggregator.CorrelationStrategy"/>
+
+
+    <!--<jdbc:initialize-database data-source="dataSource" enabled="#{systemProperties.INITIALIZE_DATABASE}">-->
+    <!--<jdbc:script location="classpath:com/foo/sql/db-schema.sql"/>-->
+    <!--<jdbc:script location="classpath:com/foo/sql/db-test-data.sql"/>-->
+    <!--</jdbc:initialize-database>-->
+    <!--<jdbc:initialize-database data-source="dataSource">-->
+    <!--<jdbc:script location="classpath:com/foo/sql/db-schema.sql"/>-->
+    <!--<jdbc:script location="classpath:com/foo/sql/db-test-data.sql"/>-->
+    <!--</jdbc:initialize-database>-->
+
+</beans:beans>

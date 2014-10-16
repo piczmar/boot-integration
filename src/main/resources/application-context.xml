@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:jms="http://www.springframework.org/schema/jms"
+       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.0.xsd
+                        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd
+                        http://www.springframework.org/schema/jms http://www.springframework.org/schema/jms/spring-jms.xsd">
+
+    <context:component-scan base-package="demo" />
+    <context:annotation-config />
+
+    <!-- contiguration of JMS listener -->
+    <bean id="jndiTemplate" class="org.springframework.jndi.JndiTemplate">
+        <property name="environment">
+            <props>
+                <prop key="java.naming.provider.url">${source.provider.url}</prop>
+                <prop key="java.naming.factory.initial">com.swiftmq.jndi.InitialContextFactoryImpl</prop>
+            </props>
+        </property>
+    </bean>
+
+    <bean id="connectionFactory" class="org.springframework.jndi.JndiObjectFactoryBean">
+        <property name="jndiTemplate" ref ="jndiTemplate"/>
+        <property name="jndiName" value="QueueConnectionFactory"/>
+    </bean>
+
+    <bean id="source" class="org.springframework.jndi.JndiObjectFactoryBean">
+        <property name="jndiTemplate" ref="jndiTemplate"/>
+        <property name="jndiName" value="${source.queue.name}"/>
+    </bean>
+
+    <!--<bean id="messageListener" class="demo.SourceQueueListener">-->
+        <!--<property name="workDispatcher" ref="workDispatcher"/>-->
+    <!--</bean>-->
+
+    <!--<bean id="jmsContainer" class="org.springframework.jms.listener.DefaultMessageListenerContainer">-->
+        <!--<property name="connectionFactory" ref="connectionFactory"/>-->
+        <!--<property name="destination" ref="source"/>-->
+        <!--<property name="messageListener" ref="messageListener"/>-->
+        <!--<property name="sessionAcknowledgeModeName" value="AUTO_ACKNOWLEDGE"/>-->
+    <!--</bean>-->
+    <!-- end JMS listeners -->
+
+    <!-- configurations of JMS senders -->
+    <bean id="sourceJndiTemplate" class="org.springframework.jndi.JndiTemplate">
+        <property name="environment">
+            <props>
+                <prop key="java.naming.provider.url">${source.provider.url}</prop>
+                <prop key="java.naming.factory.initial">com.swiftmq.jndi.InitialContextFactoryImpl</prop>
+            </props>
+        </property>
+    </bean>
+    <bean id="targetJndiTemplate" class="org.springframework.jndi.JndiTemplate">
+        <property name="environment">
+            <props>
+                <prop key="java.naming.provider.url">${target.provider.url}</prop>
+                <prop key="java.naming.factory.initial">com.swiftmq.jndi.InitialContextFactoryImpl</prop>
+            </props>
+        </property>
+    </bean>
+    <bean id="sourceConnectionFactory" class="org.springframework.jndi.JndiObjectFactoryBean">
+        <property name="jndiTemplate" ref ="sourceJndiTemplate"/>
+        <property name="jndiName" value="QueueConnectionFactory"/>
+    </bean>
+    <bean id="targetConnectionFactory" class="org.springframework.jndi.JndiObjectFactoryBean">
+        <property name="jndiTemplate" ref ="targetJndiTemplate"/>
+        <property name="jndiName" value="QueueConnectionFactory"/>
+    </bean>
+    <bean id="sourceJmsTemplate" class="org.springframework.jms.core.JmsTemplate">
+        <property name="connectionFactory" ref="sourceConnectionFactory"/>
+        <property name="defaultDestination" ref="sourceDestination"/>
+        <property name="pubSubDomain" value="true"/>
+        <property name="deliveryPersistent" value="true"/>
+        <property name="deliveryMode" value="2"/>
+    </bean>
+    <bean id="targetJmsTemplate" class="org.springframework.jms.core.JmsTemplate">
+        <property name="connectionFactory" ref="targetConnectionFactory"/>
+        <property name="defaultDestination" ref="targetDestination"/>
+        <property name="pubSubDomain" value="true"/>
+        <property name="deliveryPersistent" value="true"/>
+        <property name="deliveryMode" value="2"/>
+    </bean>
+    <bean id="sourceDestination" class="org.springframework.jndi.JndiObjectFactoryBean">
+        <property name="jndiTemplate" ref="jndiTemplate"/>
+        <property name="jndiName" value="${source.queue.name}"/>
+    </bean>
+    <bean id="targetDestination" class="org.springframework.jndi.JndiObjectFactoryBean">
+        <property name="jndiTemplate" ref="jndiTemplate"/>
+        <property name="jndiName" value="${target.queue.name}"/>
+    </bean>
+
+    <bean id="jmsSender" class="demo.JmsSender">
+        <property name="destination" ref="targetDestination"/>
+        <property name="jmsTemplate" ref="targetJmsTemplate"/>
+    </bean>
+    <bean id="healthJmsSender" class="demo.JmsSender">
+        <property name="destination" ref="sourceDestination"/>
+        <property name="jmsTemplate" ref="sourceJmsTemplate"/>
+    </bean>
+    <!-- end JMS senders -->
+
+    <bean id="discardConnectionFactory" class="org.springframework.jndi.JndiObjectFactoryBean">
+        <property name="jndiTemplate" ref ="targetJndiTemplate"/>
+        <property name="jndiName" value="QueueConnectionFactory"/>
+    </bean>
+    <bean id="discardJmsTemplate" class="org.springframework.jms.core.JmsTemplate">
+        <property name="connectionFactory" ref="discardConnectionFactory"/>
+        <property name="defaultDestination" ref="targetDestination"/>
+        <property name="pubSubDomain" value="true"/>
+        <property name="deliveryPersistent" value="true"/>
+        <property name="deliveryMode" value="2"/>
+    </bean>
+    <bean id="discardDestination" class="org.springframework.jndi.JndiObjectFactoryBean">
+        <property name="jndiTemplate" ref="jndiTemplate"/>
+        <property name="jndiName" value="${target.queue.name}"/>
+    </bean>
+</beans>
